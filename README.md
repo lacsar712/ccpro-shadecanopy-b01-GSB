@@ -25,7 +25,7 @@
 | `admin` | `123456` | admin（管理员，可进 Django Admin） |
 | `grower` | `123456` | grower（种植员） |
 
-启动时 `entrypoint.sh` 会执行 `migrate` + `seed_data` 自动写入账号与示例业务数据。
+启动时 `entrypoint.sh` 会执行 `migrate` + `seed_data` 自动写入账号与示例业务数据。种子含：一区（东坡一号棚 A-01）当日（东八区）湿度上限账 70%，以及一条湿度 88% 会撞上限的气候日志（直接写库演示；经 API 写入同样数据会被 400 拒绝）。
 
 ## 快速启动
 
@@ -46,10 +46,19 @@ docker compose down
 
 1. **Auth**：JWT `POST /api/auth/token/`，当前用户 `GET /api/auth/me/`
 2. **Greenhouse**：name / location / areaM2 / notes
-3. **Zone**：greenhouseId / zoneCode / cropName / status(`idle|growing|fallow`)；同温室 zoneCode 唯一
-4. **ClimateLog**：zoneId / recordedAt / tempC / humidityPct / parUmol / co2Ppm；**humidityPct ∈ [20, 100]**
-5. **IrrigationCycle**：zoneId / startAt / durationMin / waterLiters / status(`scheduled|running|done|skipped`)
-6. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数 → `GET /api/dashboard/`
+3. **Zone**：greenhouseId / zoneCode / cropName / status(`idle|growing|fallow`)；同温室 zoneCode 唯一；列表每行带 `todayCapPct`（今日湿度上限，未设为空）
+4. **ClimateLog**：zoneId / recordedAt / tempC / humidityPct / parUmol / co2Ppm；**humidityPct ∈ [20, 100]**，且不得超过分区当日湿度上限
+5. **HumidityCap（湿度上限账）**：zoneId / workDate / capPct / setBy（设定人，取当前登录用户）；**同区同日唯一**，capPct 为 **40～100 的整数**
+6. **IrrigationCycle**：zoneId / startAt / durationMin / waterLiters / status(`scheduled|running|done|skipped`)
+7. **Dashboard**：温室数、growing 分区数、近 24h 气候日志数、今日 scheduled 轮灌数、已设上限区数（`capZoneCountToday`，与分区列表今日上限非空行数一致） → `GET /api/dashboard/`
+
+## 湿度上限与东八区归日规则
+
+- **归日**：气候记录的 `recordedAt` 先换算到**东八区（UTC+8，固定偏移，无夏令时）**，所得自然日即为"作业日"。例如 `2026-09-21T16:30:00Z` 归到作业日 `2026-09-22`。
+- **查找上限**：写入气候记录时，按 `(分区, 作业日)` 查湿度上限账；**没有上限行则不拦截**。
+- **拦截**：湿度**严格大于**上限（`humidityPct > capPct`）时返回 **400**，中文错误信息中带上限账编号（如 `上限账 #3`）；湿度等于上限不拦。
+- **适用范围**：新建（POST）与单条更新（PUT/PATCH）走同一套上限判定。
+- **"今日"口径**：分区列表 `todayCapPct` 与仪表盘 `capZoneCountToday` 中的"今日"均指**东八区当前自然日**。
 
 ## API 一览
 
@@ -61,6 +70,7 @@ docker compose down
 | CRUD | `/api/greenhouses/` |
 | CRUD | `/api/zones/?greenhouseId=&status=` |
 | CRUD | `/api/climate-logs/?zoneId=` |
+| CRUD | `/api/humidity-caps/?zoneId=&workDate=` |
 | CRUD | `/api/irrigation-cycles/?zoneId=&status=` |
 | GET | `/api/dashboard/` |
 

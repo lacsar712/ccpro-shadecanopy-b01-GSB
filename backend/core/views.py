@@ -7,10 +7,18 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from .models import (
+    ClimateLog,
+    Greenhouse,
+    HumidityCap,
+    IrrigationCycle,
+    Zone,
+    east8_today,
+)
 from .serializers import (
     ClimateLogSerializer,
     GreenhouseSerializer,
+    HumidityCapSerializer,
     IrrigationCycleSerializer,
     ZoneSerializer,
 )
@@ -25,7 +33,11 @@ class ZoneViewSet(viewsets.ModelViewSet):
     serializer_class = ZoneSerializer
 
     def get_queryset(self):
-        qs = Zone.objects.select_related("greenhouse").all()
+        qs = (
+            Zone.objects.select_related("greenhouse")
+            .prefetch_related("humidity_caps")
+            .all()
+        )
         greenhouse_id = self.request.query_params.get("greenhouseId")
         status = self.request.query_params.get("status")
         if greenhouse_id:
@@ -33,6 +45,28 @@ class ZoneViewSet(viewsets.ModelViewSet):
         if status:
             qs = qs.filter(status=status)
         return qs
+
+
+class HumidityCapViewSet(viewsets.ModelViewSet):
+    serializer_class = HumidityCapSerializer
+
+    def get_queryset(self):
+        qs = HumidityCap.objects.select_related(
+            "zone", "zone__greenhouse", "set_by"
+        ).all()
+        zone_id = self.request.query_params.get("zoneId")
+        work_date = self.request.query_params.get("workDate")
+        if zone_id:
+            qs = qs.filter(zone_id=zone_id)
+        if work_date:
+            qs = qs.filter(work_date=work_date)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(set_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(set_by=self.request.user)
 
 
 class ClimateLogViewSet(viewsets.ModelViewSet):
@@ -79,5 +113,10 @@ def dashboard_stats(request):
             start_at__gte=today_start,
             start_at__lt=today_end,
         ).count(),
+        # 已设上限区数：东八区今日有上限账的分区数（与分区列表今日上限非空行数一致）
+        "capZoneCountToday": HumidityCap.objects.filter(work_date=east8_today())
+        .values("zone_id")
+        .distinct()
+        .count(),
     }
     return Response(data)

@@ -60,6 +60,15 @@ function edit(row) {
   form.co2Ppm = Number(row.co2Ppm)
 }
 
+function formatErr(e, fallback = '保存失败') {
+  const data = e.response?.data
+  if (!data) return fallback
+  if (typeof data === 'string') return data
+  return Object.entries(data)
+    .map(([k, v]) => `${k}: ${[].concat(v).join('；')}`)
+    .join('；')
+}
+
 async function save() {
   error.value = ''
   if (form.humidityPct < 20 || form.humidityPct > 100) {
@@ -83,7 +92,7 @@ async function save() {
     resetForm()
     await load()
   } catch (e) {
-    error.value = JSON.stringify(e.response?.data || '保存失败')
+    error.value = formatErr(e)
   }
 }
 
@@ -104,7 +113,7 @@ onMounted(async () => {
     <div class="page-head">
       <div>
         <h1>气候日志</h1>
-        <p>记录温湿度、PAR、CO₂；湿度须 ∈ [20, 100]</p>
+        <p>记录温湿度、PAR、CO₂；湿度须 ∈ [20, 100]，且不得超过分区当日（东八区）湿度上限</p>
       </div>
       <div class="actions">
         <select v-model="filterZoneId" @change="load">

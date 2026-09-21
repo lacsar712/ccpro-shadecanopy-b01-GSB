@@ -5,7 +5,14 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from core.models import (
+    ClimateLog,
+    Greenhouse,
+    HumidityCap,
+    IrrigationCycle,
+    Zone,
+    east8_today,
+)
 
 User = get_user_model()
 
@@ -76,8 +83,26 @@ class Command(BaseCommand):
         )
 
         now = timezone.now()
+
+        # 一区（东坡一号棚 A-01）今日（东八区）湿度上限账：上限 70%
+        HumidityCap.objects.create(
+            zone=z1,
+            work_date=east8_today(),
+            cap_pct=70,
+            set_by=admin,
+        )
+
         ClimateLog.objects.bulk_create(
             [
+                # 会撞上限的一条：湿度 88% > 当日上限 70%（经 API 写入会被 400 拒绝）
+                ClimateLog(
+                    zone=z1,
+                    recorded_at=now - timedelta(minutes=30),
+                    temp_c=Decimal("26.30"),
+                    humidity_pct=Decimal("88.00"),
+                    par_umol=Decimal("460.00"),
+                    co2_ppm=Decimal("610.00"),
+                ),
                 ClimateLog(
                     zone=z1,
                     recorded_at=now - timedelta(hours=2),
@@ -165,6 +190,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"种子完成：温室 {Greenhouse.objects.count()}，分区 {Zone.objects.count()}，"
-                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}"
+                f"气候 {ClimateLog.objects.count()}，轮灌 {IrrigationCycle.objects.count()}，"
+                f"湿度上限账 {HumidityCap.objects.count()}"
             )
         )
