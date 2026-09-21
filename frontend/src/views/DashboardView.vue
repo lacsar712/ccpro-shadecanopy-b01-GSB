@@ -46,6 +46,10 @@ onMounted(async () => {
         <div class="label">今日排程轮灌</div>
         <div class="value">{{ stats.irrigationScheduledToday }}</div>
       </div>
+      <div class="stat">
+        <div class="label">已设上限区数（今日）</div>
+        <div class="value">{{ stats.zonesWithCapToday }}</div>
+      </div>
     </div>
 
     <div class="panel" style="margin-top: 18px">
@@ -53,6 +57,8 @@ onMounted(async () => {
       <p style="color:var(--muted);margin:0;line-height:1.7">
         本系统面向温室「分区气候日志与轮灌计划」，不涉及考勤 OA 或库存出入库。
         可在侧栏进入温室、分区、气候与轮灌模块进行 CRUD 操作。
+        分区可按东八区自然日设置湿度上限：写入（新建或更新）气候日志时，
+        湿度严格超过当日上限将被拒绝并提示上限账编号。
       </p>
     </div>
   </div>

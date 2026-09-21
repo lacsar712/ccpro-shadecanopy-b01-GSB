@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ClimateLog, Greenhouse, IrrigationCycle, Zone
+from .models import ClimateLog, Greenhouse, HumidityCap, IrrigationCycle, Zone
 
 
 @admin.register(Greenhouse)
@@ -20,6 +20,12 @@ class ZoneAdmin(admin.ModelAdmin):
 class ClimateLogAdmin(admin.ModelAdmin):
     list_display = ("id", "zone", "recorded_at", "temp_c", "humidity_pct", "par_umol", "co2_ppm")
     list_filter = ("zone",)
+
+
+@admin.register(HumidityCap)
+class HumidityCapAdmin(admin.ModelAdmin):
+    list_display = ("id", "zone", "work_date", "cap_pct", "set_by", "updated_at")
+    list_filter = ("zone", "work_date")
 
 
 @admin.register(IrrigationCycle)

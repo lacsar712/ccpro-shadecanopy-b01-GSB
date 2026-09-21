@@ -1,0 +1,60 @@
+# Generated for ShadeCanopy humidity cap ledger (zone/day unique humidity caps)
+
+import django.core.validators
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("core", "0001_initial"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="HumidityCap",
+            fields=[
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("work_date", models.DateField()),
+                (
+                    "cap_pct",
+                    models.PositiveIntegerField(
+                        validators=[
+                            django.core.validators.MinValueValidator(40, message="湿度上限须为 40～100 的整数"),
+                            django.core.validators.MaxValueValidator(100, message="湿度上限须为 40～100 的整数"),
+                        ]
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "set_by",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="humidity_caps",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "zone",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="humidity_caps",
+                        to="core.zone",
+                    ),
+                ),
+            ],
+            options={
+                "ordering": ["-work_date", "id"],
+            },
+        ),
+        migrations.AddConstraint(
+            model_name="humiditycap",
+            constraint=models.UniqueConstraint(
+                fields=("zone", "work_date"), name="uniq_humidity_cap_per_zone_day"
+            ),
+        ),
+    ]

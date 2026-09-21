@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -69,6 +70,43 @@ class ClimateLog(models.Model):
 
     def __str__(self):
         return f"Climate@{self.zone_id} {self.recorded_at}"
+
+
+class HumidityCap(models.Model):
+    """分区按东八区自然日的湿度上限账：同区同日唯一。"""
+
+    CAP_MIN = 40
+    CAP_MAX = 100
+
+    zone = models.ForeignKey(
+        Zone, on_delete=models.CASCADE, related_name="humidity_caps"
+    )
+    work_date = models.DateField()
+    cap_pct = models.PositiveIntegerField(
+        validators=[
+            MinValueValidator(CAP_MIN, message="湿度上限须为 40～100 的整数"),
+            MaxValueValidator(CAP_MAX, message="湿度上限须为 40～100 的整数"),
+        ]
+    )
+    set_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="humidity_caps",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-work_date", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["zone", "work_date"],
+                name="uniq_humidity_cap_per_zone_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"Cap#{self.pk} {self.zone_id}@{self.work_date} ≤{self.cap_pct}%"
 
 
 class IrrigationCycle(models.Model):
